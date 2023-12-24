@@ -34,6 +34,7 @@ namespace FInanceApp.Controllers
             return Ok(await _countryRepository.GetCountry(countryId));
         }
 
+        [Authorize]
         [HttpGet("get-country-of-user")]
         public async Task<IActionResult> GetCountryOfUser()
         {

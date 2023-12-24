@@ -11,8 +11,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FInanceApp.Migrations
 {
     [DbContext(typeof(DataContext))]
-    [Migration("20231221131857_myMigration")]
-    partial class myMigration
+    [Migration("20231224163345_migration1")]
+    partial class migration1
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -57,9 +57,6 @@ namespace FInanceApp.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<int>("test")
-                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
