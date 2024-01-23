@@ -16,12 +16,14 @@ namespace FInanceApp.Repositories
         private readonly DataContext _context;
         private readonly IMapper _mapper;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ICacheService _cacheService;
 
-        public CountryRepository(DataContext context, IMapper mapper, IHttpContextAccessor httpContextAccessor)
+        public CountryRepository(DataContext context, IMapper mapper, IHttpContextAccessor httpContextAccessor, ICacheService cacheService)
         {
             _context = context;
             _mapper = mapper;
             _httpContextAccessor = httpContextAccessor;
+            _cacheService = cacheService;
         }
 
         private int GetUserId() => int.Parse(_httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier));
@@ -84,8 +86,14 @@ namespace FInanceApp.Repositories
             }
 
             //main logic (adding country to database)
-            _context.Countries.Add(_mapper.Map<Country>(newCountry));
+            var countryToAdd = _mapper.Map<Country>(newCountry);
+            _context.Countries.Add(countryToAdd);
             _context.SaveChanges();
+
+            //set expiry time
+            var expiryTime = DateTimeOffset.Now.AddSeconds(30);
+            var countryCache = _mapper.Map<GetCountryDto>(countryToAdd);
+            _cacheService.SetData<GetCountryDto>($"country{countryToAdd.Id}", countryCache, expiryTime);
 
             var response = new ServiceResponse<List<GetCountryDto>>();
             response.Data = _mapper.Map<List<GetCountryDto>>(_context.Countries.OrderBy(c => c.Id).ToList());
@@ -95,33 +103,76 @@ namespace FInanceApp.Repositories
 
         public async Task<ServiceResponse<List<GetCountryDto>>> DeleteCountry(int id)
         {
-            var countryToDelete = _context.Countries.Where(c => c.Id == id).FirstOrDefault();
-            _context.Countries.Remove(countryToDelete);
-            _context.SaveChanges();
-
             var response = new ServiceResponse<List<GetCountryDto>>();
-            response.Data = _mapper.Map<List<GetCountryDto>>(_context.Countries.OrderBy(c => c.Id).ToList());
+
+            var countryToDelete = _context.Countries.Where(c => c.Id == id).FirstOrDefault();
+
+            if (countryToDelete != null)
+            {
+                _context.Countries.Remove(countryToDelete);
+                _context.SaveChanges();
+
+                _cacheService.RemoveData($"country{id}");
+
+                response.Data = _mapper.Map<List<GetCountryDto>>(_context.Countries.OrderBy(c => c.Id).ToList());
+
+                return response;
+            }
+
+            response.Success = false;
+            response.Message = "Not Found";
 
             return response;
         }
 
         public async Task<ServiceResponse<List<GetCountryDto>>> GetCountries()
         {
-            var countries = _context.Countries.OrderBy(c => c.Id).ToList();
-
             var response = new ServiceResponse<List<GetCountryDto>>();
+
+            //check cache data
+            var cacheData = _cacheService.GetData<List<GetCountryDto>>("countries");
+
+            if (cacheData != null && cacheData.Count > 0)
+            {
+                response.Data = cacheData;
+                response.Message = "Cached data";
+                return response;
+            }
+
+            var countries = _context.Countries.OrderBy(c => c.Id).ToList();
             response.Data = _mapper.Map<List<GetCountryDto>>(countries);
 
+            //set expiry time
+            var expiryTime = DateTimeOffset.Now.AddSeconds(30);
+            _cacheService.SetData<List<GetCountryDto>>("countries", response.Data, expiryTime);
+
+            response.Message = "Database data";
             return response;
         }
 
         public async Task<ServiceResponse<GetCountryDto>> GetCountry(int countryId)
         {
-            var country = _context.Countries.Where(c => c.Id == countryId).FirstOrDefault();
-
             var response = new ServiceResponse<GetCountryDto>();
+
+            //check cache data
+            var cacheData = _cacheService.GetData<GetCountryDto>($"country{countryId}");
+
+            if (cacheData != null)
+            {
+                response.Data = cacheData;
+                response.Message = "Cached data";
+                return response;
+            }
+
+            var country = _context.Countries.Where(c => c.Id == countryId).FirstOrDefault();
             response.Data = _mapper.Map<GetCountryDto>(country);
 
+
+            //set expiry time
+            var expiryTime = DateTimeOffset.Now.AddSeconds(30);
+            _cacheService.SetData<GetCountryDto>($"country{countryId}", response.Data, expiryTime);
+
+            response.Message = "Database data";
             return response;
         }
 

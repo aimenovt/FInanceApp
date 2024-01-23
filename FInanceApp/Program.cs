@@ -40,13 +40,14 @@ builder.Services.AddScoped<IBalanceRepository, BalanceRepository>();
 builder.Services.AddScoped<ICountryRepository, CountryRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IFinGoalRepository, FinGoalRepository>();
+builder.Services.AddScoped<ICacheService, CacheService>();
 
 //// Load the correct connection string based on the environment
 //var connectionStringKey = environment == "Docker" ? "DockerConnection" : "DefaultConnection";
 
 builder.Services.AddDbContext<DataContext>(o => 
 {
-    o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+    o.UseNpgsql(builder.Configuration.GetConnectionString("DockerConnection"));
 });
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
